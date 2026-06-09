@@ -122,6 +122,12 @@ public class UserServiceImpl implements UserService {
                     "Email не может быть пустым"
             );
         }
+
+        if (!email.contains("@")) {
+            log.warn("Получен некорректный email: {}", email);
+
+            throw new ValidationException("Некорректный формат email");
+        }
     }
 
     private boolean isEmailExists(String email, Long currentUserId) {
