@@ -14,4 +14,8 @@ public interface ItemRepository {
 
     Collection<Item> getAll();
 
+    Collection<Item> getByOwnerId(Long ownerId);
+
+    Collection<Item> search(String text);
+
 }

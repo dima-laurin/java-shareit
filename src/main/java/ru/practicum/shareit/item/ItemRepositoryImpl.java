@@ -41,4 +41,26 @@ public class ItemRepositoryImpl implements ItemRepository {
         return items.values();
     }
 
+    @Override
+    public Collection<Item> getByOwnerId(Long ownerId) {
+        return items.values()
+                .stream()
+                .filter(item -> item.getOwner().getId().equals(ownerId))
+                .toList();
+    }
+
+    @Override
+    public Collection<Item> search(String text) {
+        String lowerText = text.toLowerCase();
+
+        return items.values()
+                .stream()
+                .filter(Item::getAvailable)
+                .filter(item ->
+                        item.getName().toLowerCase().contains(lowerText)
+                                || item.getDescription().toLowerCase().contains(lowerText)
+                )
+                .toList();
+    }
+
 }

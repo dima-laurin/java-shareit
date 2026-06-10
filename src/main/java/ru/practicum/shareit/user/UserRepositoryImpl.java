@@ -39,4 +39,19 @@ public class UserRepositoryImpl implements UserRepository {
     public void deleteById(Long userId) {
         users.remove(userId);
     }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return users.values()
+                .stream()
+                .anyMatch(user -> user.getEmail().equals(email));
+    }
+
+    @Override
+    public boolean existsByEmailAndIdNot(String email, Long userId) {
+        return users.values()
+                .stream()
+                .anyMatch(user -> email.equals(user.getEmail())
+                        && !user.getId().equals(userId));
+    }
 }

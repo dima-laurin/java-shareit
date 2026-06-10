@@ -25,7 +25,7 @@ public class UserServiceImpl implements UserService {
 
         validateEmail(userDto.getEmail());
 
-        if (isEmailExists(userDto.getEmail(), null)) {
+        if (userRepository.existsByEmail(userDto.getEmail())) {
             log.warn("Попытка создать пользователя с существующим email: {}",
                     userDto.getEmail());
 
@@ -49,9 +49,8 @@ public class UserServiceImpl implements UserService {
         if (userDto.getEmail() != null) {
             validateEmail(userDto.getEmail());
 
-            if (isEmailExists(userDto.getEmail(), userId)) {
-                log.warn("Попытка установить занятый email {} для пользователя {}",
-                        userDto.getEmail(), userId);
+            if (userRepository.existsByEmailAndIdNot(userDto.getEmail(), userId)) {
+                log.warn("Попытка установить занятый email {} для пользователя {}", userDto.getEmail(), userId);
 
                 throw new SameEmailException("Email уже используется");
             }
@@ -130,10 +129,4 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private boolean isEmailExists(String email, Long currentUserId) {
-        return userRepository.getAll()
-                .stream()
-                .anyMatch(user -> user.getEmail().equals(email)
-                        && !user.getId().equals(currentUserId));
-    }
 }

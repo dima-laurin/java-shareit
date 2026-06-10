@@ -13,7 +13,6 @@ import ru.practicum.shareit.user.UserRepository;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -92,11 +91,10 @@ public class ItemServiceImpl implements ItemService {
 
         getUserOrThrow(userId);
 
-        return itemRepository.getAll()
+        return itemRepository.getByOwnerId(userId)
                 .stream()
-                .filter(item -> item.getOwner().getId().equals(userId))
                 .map(ItemMapper::toItemDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -107,17 +105,10 @@ public class ItemServiceImpl implements ItemService {
             return List.of();
         }
 
-        String lowerText = text.toLowerCase();
-
-        return itemRepository.getAll()
+        return itemRepository.search(text)
                 .stream()
-                .filter(Item::getAvailable)
-                .filter(item ->
-                        item.getName().toLowerCase().contains(lowerText)
-                                || item.getDescription().toLowerCase().contains(lowerText)
-                )
                 .map(ItemMapper::toItemDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private User getUserOrThrow(Long userId) {
