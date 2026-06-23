@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+
+
 import java.util.Map;
 
 @Slf4j
@@ -38,5 +40,13 @@ public class GlobalExceptionHandler {
     public Map<String, String> handleOther(RuntimeException e) {
         log.error(e.getMessage(), e);
         return Map.of("error", "Внутренняя ошибка сервера");
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Map<String, String> handleForbiddenException(ForbiddenException e) {
+        log.warn("Ошибка доступа: {}", e.getMessage());
+
+        return Map.of("error", e.getMessage());
     }
 }

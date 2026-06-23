@@ -62,7 +62,7 @@ public class UserServiceImpl implements UserService {
             user.setName(userDto.getName());
         }
 
-        User updatedUser = userRepository.update(user);
+        User updatedUser = userRepository.save(user);
 
         log.info("Пользователь успешно обновлён. id={}", userId);
 
@@ -82,7 +82,7 @@ public class UserServiceImpl implements UserService {
     public Collection<UserDto> getAll() {
         log.info("Получение списка всех пользователей");
 
-        return userRepository.getAll()
+        return userRepository.findAll()
                 .stream()
                 .map(UserMapper::toUserDto)
                 .collect(Collectors.toList());
@@ -100,17 +100,14 @@ public class UserServiceImpl implements UserService {
     }
 
     private User getUserOrThrow(Long userId) {
-        User user = userRepository.getById(userId);
+        return userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("Пользователь не найден. id={}", userId);
 
-        if (user == null) {
-            log.warn("Пользователь не найден. id={}", userId);
-
-            throw new NotFoundException(
-                    "Пользователь с id=" + userId + " не найден"
-            );
-        }
-
-        return user;
+                    return new NotFoundException(
+                            "Пользователь с id=" + userId + " не найден"
+                    );
+                });
     }
 
     private void validateEmail(String email) {

@@ -3,26 +3,40 @@ package ru.practicum.shareit.item;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.booking.BookingRepository;
+import ru.practicum.shareit.booking.BookingStatus;
+import ru.practicum.shareit.booking.dto.BookingDto;
+import ru.practicum.shareit.booking.dto.BookingMapper;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemMapper;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.item.comment.dto.CommentDto;
+import ru.practicum.shareit.item.comment.dto.CommentMapper;
+import ru.practicum.shareit.item.comment.Comment;
+import ru.practicum.shareit.item.comment.CommentRepository;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ItemServiceImpl implements ItemService {
 
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
+    private final CommentRepository commentRepository;
 
     @Override
+    @Transactional
     public ItemDto create(Long userId, ItemDto itemDto) {
         log.info("Создание вещи пользователем id={}", userId);
 
@@ -37,10 +51,11 @@ public class ItemServiceImpl implements ItemService {
 
         log.info("Вещь успешно создана. id={}", savedItem.getId());
 
-        return ItemMapper.toItemDto(savedItem);
+        return buildItemDto(savedItem, userId);
     }
 
     @Override
+    @Transactional
     public ItemDto update(Long userId, Long itemId, ItemDto itemDto) {
         log.info("Обновление вещи id={} пользователем id={}", itemId, userId);
 
@@ -69,20 +84,22 @@ public class ItemServiceImpl implements ItemService {
             item.setAvailable(itemDto.getAvailable());
         }
 
-        Item updatedItem = itemRepository.update(item);
+        Item updatedItem = itemRepository.save(item);
 
         log.info("Вещь успешно обновлена. id={}", itemId);
 
-        return ItemMapper.toItemDto(updatedItem);
+        return buildItemDto(updatedItem, userId);
     }
 
     @Override
-    public ItemDto getById(Long itemId) {
-        log.info("Получение вещи id={}", itemId);
+    public ItemDto getById(Long userId, Long itemId) {
+        log.info("Получение вещи id={} пользователем id={}", itemId, userId);
+
+        getUserOrThrow(userId);
 
         Item item = getItemOrThrow(itemId);
 
-        return ItemMapper.toItemDto(item);
+        return buildItemDto(item, userId);
     }
 
     @Override
@@ -91,9 +108,9 @@ public class ItemServiceImpl implements ItemService {
 
         getUserOrThrow(userId);
 
-        return itemRepository.getByOwnerId(userId)
+        return itemRepository.findByOwner_IdOrderByIdAsc(userId)
                 .stream()
-                .map(ItemMapper::toItemDto)
+                .map(item -> buildItemDto(item, userId))
                 .toList();
     }
 
@@ -107,36 +124,106 @@ public class ItemServiceImpl implements ItemService {
 
         return itemRepository.search(text)
                 .stream()
-                .map(ItemMapper::toItemDto)
+                .map(item -> buildItemDto(item, null))
                 .toList();
     }
 
-    private User getUserOrThrow(Long userId) {
-        User user = userRepository.getById(userId);
+    @Override
+    @Transactional
+    public CommentDto addComment(Long userId, Long itemId, CommentDto commentDto) {
+        log.info("Добавление комментария к вещи id={} пользователем id={}",
+                itemId, userId);
 
-        if (user == null) {
-            log.warn("Пользователь не найден. id={}", userId);
+        User author = getUserOrThrow(userId);
+        Item item = getItemOrThrow(itemId);
 
-            throw new NotFoundException(
-                    "Пользователь с id=" + userId + " не найден"
+        validateComment(commentDto);
+
+        boolean hasFinishedBooking = bookingRepository
+                .existsByItem_IdAndBooker_IdAndEndBefore(
+                        itemId,
+                        userId,
+                        LocalDateTime.now()
+                );
+
+        if (!hasFinishedBooking) {
+            log.warn("Пользователь id={} пытается оставить отзыв без завершённого бронирования вещи id={}",
+                    userId, itemId);
+
+            throw new ValidationException(
+                    "Оставить отзыв может только пользователь, завершивший бронирование"
             );
         }
 
-        return user;
+        Comment comment = new Comment();
+        comment.setText(commentDto.getText());
+        comment.setItem(item);
+        comment.setAuthor(author);
+        comment.setCreated(LocalDateTime.now());
+
+        Comment savedComment = commentRepository.save(comment);
+
+        log.info("Комментарий успешно добавлен. id={}", savedComment.getId());
+
+        return CommentMapper.toCommentDto(savedComment);
+    }
+
+
+    private ItemDto buildItemDto(Item item, Long userId) {
+        List<CommentDto> comments = commentRepository
+                .findByItem_IdOrderByCreatedAsc(item.getId())
+                .stream()
+                .map(CommentMapper::toCommentDto)
+                .toList();
+
+        BookingDto lastBooking = null;
+        BookingDto nextBooking = null;
+
+        if (userId != null && item.getOwner().getId().equals(userId)) {
+            LocalDateTime now = LocalDateTime.now();
+
+            lastBooking = bookingRepository
+                    .findFirstByItem_IdAndStatusAndEndBeforeOrderByEndDesc(
+                            item.getId(),
+                            BookingStatus.APPROVED,
+                            now
+                    )
+                    .map(BookingMapper::toBookingDto)
+                    .orElse(null);
+
+            nextBooking = bookingRepository
+                    .findFirstByItem_IdAndStatusAndStartAfterOrderByStartAsc(
+                            item.getId(),
+                            BookingStatus.APPROVED,
+                            now
+                    )
+                    .map(BookingMapper::toBookingDto)
+                    .orElse(null);
+        }
+
+        return ItemMapper.toItemDto(item, lastBooking, nextBooking, comments);
+    }
+
+    private User getUserOrThrow(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("Пользователь не найден. id={}", userId);
+
+                    return new NotFoundException(
+                            "Пользователь с id=" + userId + " не найден"
+                    );
+                });
     }
 
     private Item getItemOrThrow(Long itemId) {
-        Item item = itemRepository.getById(itemId);
+        return itemRepository.findById(itemId)
+                .orElseThrow(() -> {
+                    log.warn("Вещь не найдена. id={}", itemId);
 
-        if (item == null) {
-            log.warn("Вещь не найдена. id={}", itemId);
-
-            throw new NotFoundException(
-                    "Вещь с id=" + itemId + " не найдена"
-            );
-        }
-
-        return item;
+                    return new NotFoundException(
+                            "Вещь с id=" + itemId + " не найдена"
+                    );
+                });
     }
 
     private void validateItem(ItemDto itemDto) {
@@ -161,6 +248,16 @@ public class ItemServiceImpl implements ItemService {
 
             throw new ValidationException(
                     "Статус доступности вещи должен быть указан"
+            );
+        }
+    }
+
+    private void validateComment(CommentDto commentDto) {
+        if (commentDto.getText() == null || commentDto.getText().isBlank()) {
+            log.warn("Попытка добавить пустой комментарий");
+
+            throw new ValidationException(
+                    "Текст комментария не может быть пустым"
             );
         }
     }
