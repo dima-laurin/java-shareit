@@ -10,6 +10,7 @@ import ru.practicum.shareit.booking.dto.BookingRequestDto;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.exception.ForbiddenException;
+import ru.practicum.shareit.exception.BookingAccessException;
 import ru.practicum.shareit.item.ItemRepository;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.User;
@@ -44,7 +45,7 @@ public class BookingServiceImpl implements BookingService {
             log.warn("Владелец id={} пытается забронировать свою вещь id={}",
                     userId, item.getId());
 
-            throw new NotFoundException(
+            throw new BookingAccessException(
                     "Владелец не может бронировать свою вещь"
             );
         }
@@ -132,7 +133,7 @@ public class BookingServiceImpl implements BookingService {
             log.warn("Пользователь id={} не имеет доступа к бронированию id={}",
                     userId, bookingId);
 
-            throw new NotFoundException(
+            throw new BookingAccessException(
                     "Бронирование недоступно пользователю"
             );
         }

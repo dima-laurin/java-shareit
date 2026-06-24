@@ -49,4 +49,12 @@ public class GlobalExceptionHandler {
 
         return Map.of("error", e.getMessage());
     }
+
+    @ExceptionHandler(BookingAccessException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleBookingAccessException(BookingAccessException e) {
+        log.warn("Ошибка доступа к бронированию: {}", e.getMessage());
+
+        return Map.of("error", e.getMessage());
+    }
 }
