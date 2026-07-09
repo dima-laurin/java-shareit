@@ -5,6 +5,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.exception.BookingAccessException;
+import ru.practicum.shareit.exception.ForbiddenException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.booking.Booking;
 import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.booking.BookingService;
@@ -25,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -179,6 +183,64 @@ class BookingServiceIntegrationTest {
 
         assertThat(result.size(), equalTo(1));
         assertThat(bookingIds, contains(waiting.getId()));
+    }
+
+    @Test
+    void create_shouldThrowValidationExceptionWhenItemIdIsNull() {
+        User booker = saveUser("Booker", "booker@mail.com");
+
+        BookingRequestDto request = new BookingRequestDto();
+        request.setStart(LocalDateTime.now().plusDays(1));
+        request.setEnd(LocalDateTime.now().plusDays(2));
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> bookingService.create(booker.getId(), request)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Не указана вещь для бронирования"));
+    }
+
+    @Test
+    void create_shouldThrowBookingAccessExceptionWhenOwnerBooksOwnItem() {
+        User owner = saveUser("Owner", "owner@mail.com");
+        Item item = saveItem(owner, "Drill", "Power drill", true);
+
+        BookingRequestDto request = new BookingRequestDto();
+        request.setItemId(item.getId());
+        request.setStart(LocalDateTime.now().plusDays(1));
+        request.setEnd(LocalDateTime.now().plusDays(2));
+
+        BookingAccessException exception = assertThrows(
+                BookingAccessException.class,
+                () -> bookingService.create(owner.getId(), request)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Владелец не может бронировать свою вещь"));
+    }
+
+    @Test
+    void approve_shouldThrowForbiddenExceptionWhenUserIsNotOwner() {
+        User owner = saveUser("Owner", "owner@mail.com");
+        User booker = saveUser("Booker", "booker@mail.com");
+        User other = saveUser("Other", "other@mail.com");
+
+        Item item = saveItem(owner, "Drill", "Power drill", true);
+
+        Booking booking = saveBooking(
+                booker,
+                item,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now().plusDays(2),
+                BookingStatus.WAITING
+        );
+
+        ForbiddenException exception = assertThrows(
+                ForbiddenException.class,
+                () -> bookingService.approve(other.getId(), booking.getId(), true)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Подтвердить бронирование может только владелец вещи"));
     }
 
     private User saveUser(String name, String email) {

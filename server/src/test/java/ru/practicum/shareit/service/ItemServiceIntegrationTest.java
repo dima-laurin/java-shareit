@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.booking.Booking;
 import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.booking.BookingStatus;
@@ -31,6 +33,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -243,6 +246,55 @@ class ItemServiceIntegrationTest {
         assertThat(saved.getText(), equalTo("Great item"));
         assertThat(saved.getAuthor().getId(), equalTo(booker.getId()));
         assertThat(saved.getItem().getId(), equalTo(item.getId()));
+    }
+
+    @Test
+    void create_shouldThrowValidationExceptionWhenNameIsBlank() {
+        User owner = saveUser("Owner", "owner@mail.com");
+
+        ItemDto itemDto = new ItemDto(
+                null,
+                "",
+                "Description",
+                true,
+                null,
+                null,
+                null,
+                List.of()
+        );
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> itemService.create(owner.getId(), itemDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Название вещи не может быть пустым"));
+    }
+
+    @Test
+    void update_shouldThrowNotFoundExceptionWhenUserIsNotOwner() {
+        User owner = saveUser("Owner", "owner@mail.com");
+        User other = saveUser("Other", "other@mail.com");
+
+        Item item = saveItem(owner, "Drill", "Power drill", true);
+
+        ItemDto itemDto = new ItemDto(
+                null,
+                "New name",
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of()
+        );
+
+        NotFoundException exception = assertThrows(
+                NotFoundException.class,
+                () -> itemService.update(other.getId(), item.getId(), itemDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Редактировать вещь может только владелец"));
     }
 
     private User saveUser(String name, String email) {

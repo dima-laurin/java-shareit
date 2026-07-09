@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.item.ItemRepository;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.request.ItemRequest;
@@ -24,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -117,6 +119,25 @@ class ItemRequestServiceIntegrationTest {
         assertThat(linkedItem.getId(), equalTo(item.getId()));
         assertThat(linkedItem.getName(), equalTo("Drill"));
         assertThat(linkedItem.getOwnerId(), equalTo(owner.getId()));
+    }
+
+    @Test
+    void create_shouldThrowValidationExceptionWhenDescriptionIsBlank() {
+        User requestor = saveUser("Requestor", "requestor@mail.com");
+
+        ItemRequestDto requestDto = new ItemRequestDto(
+                null,
+                "",
+                null,
+                null
+        );
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> itemRequestService.create(requestor.getId(), requestDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Описание запроса не может быть пустым"));
     }
 
     private User saveUser(String name, String email) {

@@ -6,6 +6,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.SameEmailException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.user.User;
 import ru.practicum.shareit.user.UserRepository;
 import ru.practicum.shareit.user.UserService;
@@ -93,6 +95,44 @@ class UserServiceIntegrationTest {
 
         assertThat(userRepository.findById(user.getId()).isEmpty(), equalTo(true));
         assertThrows(NotFoundException.class, () -> userService.getById(user.getId()));
+    }
+
+    @Test
+    void create_shouldThrowValidationExceptionWhenEmailIsBlank() {
+        UserDto userDto = new UserDto(null, "User", "");
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> userService.create(userDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Email не может быть пустым"));
+    }
+
+    @Test
+    void create_shouldThrowSameEmailExceptionWhenEmailAlreadyExists() {
+        saveUser("First", "user@mail.com");
+
+        UserDto userDto = new UserDto(null, "Second", "user@mail.com");
+
+        SameEmailException exception = assertThrows(
+                SameEmailException.class,
+                () -> userService.create(userDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Email уже используется"));
+    }
+
+    @Test
+    void update_shouldThrowNotFoundExceptionWhenUserDoesNotExist() {
+        UserDto userDto = new UserDto(null, "New name", "new@mail.com");
+
+        NotFoundException exception = assertThrows(
+                NotFoundException.class,
+                () -> userService.update(999L, userDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Пользователь с id=999 не найден"));
     }
 
     private User saveUser(String name, String email) {
