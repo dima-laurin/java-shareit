@@ -468,6 +468,54 @@ class BookingServiceIntegrationTest {
         assertThat(exception.getMessage(), equalTo("Пользователь с id=999 не найден"));
     }
 
+    @Test
+    void getOwnerBookings_shouldThrowValidationExceptionWhenStateIsUnknown() {
+        User owner = saveUser("Owner", "owner@mail.com");
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> bookingService.getOwnerBookings(owner.getId(), "UNKNOWN")
+        );
+
+        assertThat(exception.getMessage(), equalTo("Неизвестный статус: UNKNOWN"));
+    }
+
+    @Test
+    void getUserBookings_shouldThrowValidationExceptionWhenStateIsUnknown() {
+        User booker = saveUser("Booker", "booker@mail.com");
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> bookingService.getUserBookings(booker.getId(), "UNKNOWN")
+        );
+
+        assertThat(exception.getMessage(), equalTo("Неизвестный статус: UNKNOWN"));
+    }
+
+    @Test
+    void getById_shouldThrowBookingAccessExceptionWhenUserIsNotBookerOrOwner() {
+        User owner = saveUser("Owner", "owner@mail.com");
+        User booker = saveUser("Booker", "booker@mail.com");
+        User other = saveUser("Other", "other@mail.com");
+
+        Item item = saveItem(owner, "Drill", "Power drill", true);
+
+        Booking booking = saveBooking(
+                booker,
+                item,
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now().plusDays(2),
+                BookingStatus.WAITING
+        );
+
+        BookingAccessException exception = assertThrows(
+                BookingAccessException.class,
+                () -> bookingService.getById(other.getId(), booking.getId())
+        );
+
+        assertThat(exception.getMessage(), equalTo("Бронирование недоступно пользователю"));
+    }
+
     private User saveUser(String name, String email) {
         return userRepository.save(new User(null, name, email));
     }
