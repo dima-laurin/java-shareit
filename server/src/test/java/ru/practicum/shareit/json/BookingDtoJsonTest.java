@@ -61,6 +61,6 @@ class BookingDtoJsonTest {
         assertThat(result.getStatus(), equalTo(BookingStatus.WAITING));
         assertThat(result.getBooker().getId(), equalTo(2L));
         assertThat(result.getItem().getId(), equalTo(3L));
-        assertThat(result.getItem().getName(), equalTo("Дрель"));
+        assertThat(result.getItem().getName(), equalTo("Drill"));
     }
 }
