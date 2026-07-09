@@ -272,6 +272,52 @@ class ItemServiceIntegrationTest {
     }
 
     @Test
+    void create_shouldThrowValidationExceptionWhenDescriptionIsBlank() {
+        User owner = saveUser("Owner", "owner@mail.com");
+
+        ItemDto itemDto = new ItemDto(
+                null,
+                "Item",
+                "",
+                true,
+                null,
+                null,
+                null,
+                List.of()
+        );
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> itemService.create(owner.getId(), itemDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Описание вещи не может быть пустым"));
+    }
+
+    @Test
+    void create_shouldThrowValidationExceptionWhenAvailableIsNull() {
+        User owner = saveUser("Owner", "owner@mail.com");
+
+        ItemDto itemDto = new ItemDto(
+                null,
+                "Item",
+                "Description",
+                null,
+                null,
+                null,
+                null,
+                List.of()
+        );
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> itemService.create(owner.getId(), itemDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Статус доступности вещи должен быть указан"));
+    }
+
+    @Test
     void update_shouldThrowNotFoundExceptionWhenUserIsNotOwner() {
         User owner = saveUser("Owner", "owner@mail.com");
         User other = saveUser("Other", "other@mail.com");
@@ -295,6 +341,23 @@ class ItemServiceIntegrationTest {
         );
 
         assertThat(exception.getMessage(), equalTo("Редактировать вещь может только владелец"));
+    }
+
+    @Test
+    void addComment_shouldThrowValidationExceptionWhenTextIsBlank() {
+        User owner = saveUser("Owner", "owner@mail.com");
+        User booker = saveUser("Booker", "booker@mail.com");
+
+        Item item = saveItem(owner, "Drill", "Power drill", true);
+
+        CommentDto commentDto = new CommentDto(null, "", null, null);
+
+        ValidationException exception = assertThrows(
+                ValidationException.class,
+                () -> itemService.addComment(booker.getId(), item.getId(), commentDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Текст комментария не может быть пустым"));
     }
 
     private User saveUser(String name, String email) {

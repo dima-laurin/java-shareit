@@ -124,12 +124,47 @@ class UserServiceIntegrationTest {
     }
 
     @Test
+    void update_shouldThrowSameEmailExceptionWhenEmailAlreadyUsedByAnotherUser() {
+        User first = saveUser("First", "first@mail.com");
+        saveUser("Second", "second@mail.com");
+
+        UserDto userDto = new UserDto(null, null, "second@mail.com");
+
+        SameEmailException exception = assertThrows(
+                SameEmailException.class,
+                () -> userService.update(first.getId(), userDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Email уже используется"));
+    }
+
+    @Test
     void update_shouldThrowNotFoundExceptionWhenUserDoesNotExist() {
         UserDto userDto = new UserDto(null, "New name", "new@mail.com");
 
         NotFoundException exception = assertThrows(
                 NotFoundException.class,
                 () -> userService.update(999L, userDto)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Пользователь с id=999 не найден"));
+    }
+
+    @Test
+    void getById_shouldThrowNotFoundExceptionWhenUserDoesNotExist() {
+        NotFoundException exception = assertThrows(
+                NotFoundException.class,
+                () -> userService.getById(999L)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Пользователь с id=999 не найден"));
+    }
+
+    @Test
+    void delete_shouldThrowNotFoundExceptionWhenUserDoesNotExist() {
+        NotFoundException exception = assertThrows(
+                NotFoundException.class,
+                () -> userService.delete(999L)
         );
 
         assertThat(exception.getMessage(), equalTo("Пользователь с id=999 не найден"));

@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.exception.ValidationException;
+import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.ItemRepository;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.request.ItemRequest;
@@ -138,6 +139,28 @@ class ItemRequestServiceIntegrationTest {
         );
 
         assertThat(exception.getMessage(), equalTo("Описание запроса не может быть пустым"));
+    }
+
+    @Test
+    void getById_shouldThrowNotFoundExceptionWhenRequestDoesNotExist() {
+        User user = saveUser("User", "user@mail.com");
+
+        NotFoundException exception = assertThrows(
+                NotFoundException.class,
+                () -> itemRequestService.getById(user.getId(), 999L)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Запрос вещи с id=999 не найден"));
+    }
+
+    @Test
+    void getAllRequests_shouldThrowNotFoundExceptionWhenUserDoesNotExist() {
+        NotFoundException exception = assertThrows(
+                NotFoundException.class,
+                () -> itemRequestService.getAllRequests(999L)
+        );
+
+        assertThat(exception.getMessage(), equalTo("Пользователь с id=999 не найден"));
     }
 
     private User saveUser(String name, String email) {
